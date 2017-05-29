@@ -68,6 +68,9 @@ def train(net, train_data, enc, dec, loss_fun, args):
                 text = predict.predict(net,enc,dec)
                 print 'sample %d: '%(it) + ''.join(text)
                 state = {
+                    'config': args,
+                    'enc': enc,
+                    'dec': dec,
                     'epoch': epoch,
                     'state_dict': net.state_dict(),
                     'loss': avg_loss,
