@@ -11,7 +11,7 @@ Call the train.py script to train a model:
 python train.py .
 ```
 
-The script trains an LSTM character level model on all text files in the directory passed as argument. The model will preiodically be saved in the current dir. Options:
+The script trains an LSTM character level model on all text files in the directory passed as argument. The model will periodically be saved in the current dir. Options:
 
 ```
 usage: train.py [-h] [-clip CLIP] [-dropout DROPOUT] [-seq_length SEQ_LENGTH]
