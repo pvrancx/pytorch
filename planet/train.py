@@ -26,7 +26,7 @@ def train(net,loader,criterion,optimizer):
             print('%fs elapsed \t'
                   '%f  done \t'
                   '%f loss \t'
-                  '%fs remaining'%(dt,pct*100,curr_loss,dt/pct))
+                  '%fs remaining'%(dt,pct*100,curr_loss,dt/pct*(1.-pct)))
     return avg_loss[0] / len(loader)
 
 def validate(net,loader,criterion):
@@ -39,7 +39,7 @@ def validate(net,loader,criterion):
         loss = criterion(output, target_var)
 
         avg_loss += loss.data
-    return avg_loss #/= len(loader)
+    return avg_loss[0]/len(loader)
 
 def save_model(model_state,filename='checkpoint.pth.tar',is_best=False):
     torch.save(model_state, filename)
