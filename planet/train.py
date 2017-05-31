@@ -19,7 +19,7 @@ def train(net,loader,criterion,optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        if i%20 == 0:
+        if i%50 == 0:
             dt = time.time()-start
             pct = float(i+1)/len(loader)
             curr_loss = avg_loss[0] / (i+1)
@@ -67,7 +67,7 @@ def main(args):
                                      args.datapath + '/img_labels.csv',
                                      args.datapath + '/labels.txt',
                                      crop=224)
-    val_data = data.create_dataset(args.datapath +'/validation',
+    val_data = data.create_dataset(args.datapath +'/val',
                                    args.datapath + '/img_labels.csv',
                                    args.datapath + '/labels.txt',
                                    crop=224)
@@ -118,7 +118,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-patience", type=int, default=5, help="early stopping patience")
-    parser.add_argument("-batch_size", type=int, default=64, help="batch size")
+    parser.add_argument("-batch_size", type=int, default=128, help="batch size")
     parser.add_argument("-resume", type=str, default=None, help="resume training model file")
     parser.add_argument("-nepochs", type=int, default=100, help="max epochs")
     parser.add_argument("-workers", type=int, default=2, help="number of data loaders")

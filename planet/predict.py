@@ -1,13 +1,23 @@
 import argparse
+from sklearn.metrics import fbeta_score
+
+def score_threshold(y,p,thresholds):
+    score = 0.
+    for row in range(p.size()[0]):
+        p_thres = p[row,:]>thresholds
+        score += fbeta_score(y[row,:],p_thres, beta=2)
+    return score / p.size()[0]
+
 
 def predict(net,loader):
     net.eval()
-    result = torch.FloatTensor((len(loader),len(net.n_tags))))
-    for i, (X, _) in enumerate(loader):
+    prediction = torch.FloatTensor((len(loader),len(net.n_tags))))
+    ground_truth= torch.FloatTensor((len(loader),len(net.n_tags))))
+    for i, (X, y) in enumerate(loader):
         input_var = torch.autograd.Variable(X)
-        result[i,:] = model(input_var).data
-
-    return result
+        prediction[i,:] = model(input_var).data
+        ground_truth[i,:] = y
+    return prediction, ground_truth
 
 
 def write_prediction(predictions,idx2tag, threshold,filename):
@@ -40,5 +50,5 @@ if __name__ == '__main__':
     test_loader = torch.utils.data.DataLoader(
             test_data, batch_size=args.batch_size, shuffle=False )
 
-    p = predict(net,test_loader)
+    p,y = predict(net,test_loader)
     write_prediction(p, test_loader.idx2tags, args.threshold, args.outfile)
