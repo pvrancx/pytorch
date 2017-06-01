@@ -48,9 +48,9 @@ def validate(net,loader,criterion):
     return avg_loss/len(loader)
 
 def save_model(model_state,filename='checkpoint.pth.tar',is_best=False):
-    torch.save(model_state, filename)
+    torch.save(model_state, model_state['arch']+'-'+filename)
     if is_best:
-        shutil.copyfile(filename, 'best.pth.tar')
+        shutil.copyfile(filename, model_state['arch']+'-best.pth.tar')
 
 def main(args):
     # create model and optimizer
@@ -107,10 +107,11 @@ def main(args):
             'epoch': e,
             'score': val_loss,
             'cfg': net.cfg,
+            'arch': args.model,
             'state_dict': net.state_dict(),
             'optimizer': optimizer.state_dict()
         }
-        save_model(model_state,args.model+'-checkpoint.pth.tar', val_loss < best_loss)
+        save_model(model_state,'checkpoint.pth.tar', val_loss < best_loss)
         #early stopping
         if val_loss < best_loss:
             best_loss = val_loss
