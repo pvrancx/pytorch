@@ -5,6 +5,12 @@ import data
 import time
 import shutil
 
+model_names = sorted(name for name in model.__dict__
+    if name.startswith("Planet")
+    and callable(model.__dict__[name]))
+
+print model_names
+
 def train(net,loader,criterion,optimizer):
     net.train()
     avg_loss = 0.
@@ -15,19 +21,19 @@ def train(net,loader,criterion,optimizer):
 
         output = net(input_var)
         loss = criterion(output, target_var)
-        avg_loss += loss.data
+        avg_loss += loss.data[0]
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         if i%50 == 0:
             dt = time.time()-start
             pct = float(i+1)/len(loader)
-            curr_loss = avg_loss[0] / (i+1)
+            curr_loss = avg_loss / (i+1)
             print('%fs elapsed \t'
                   '%f  done \t'
                   '%f loss \t'
                   '%fs remaining'%(dt,pct*100,curr_loss,dt/pct*(1.-pct)))
-    return avg_loss[0] / len(loader)
+    return avg_loss / len(loader)
 
 def validate(net,loader,criterion):
     net.eval()
@@ -38,8 +44,8 @@ def validate(net,loader,criterion):
         output = net(input_var)
         loss = criterion(output, target_var)
 
-        avg_loss += loss.data
-    return avg_loss[0]/len(loader)
+        avg_loss += loss.data[0]
+    return avg_loss/len(loader)
 
 def save_model(model_state,filename='checkpoint.pth.tar',is_best=False):
     torch.save(model_state, filename)
@@ -48,7 +54,7 @@ def save_model(model_state,filename='checkpoint.pth.tar',is_best=False):
 
 def main(args):
     # create model and optimizer
-    net = model.PlanetNet(17)
+    net = model.__dict__[args.model](17)
     optimizer = torch.optim.Adam(net.parameters())
     criterion = torch.nn.MultiLabelSoftMarginLoss()
 
@@ -104,7 +110,7 @@ def main(args):
             'state_dict': net.state_dict(),
             'optimizer': optimizer.state_dict()
         }
-        save_model(model_state,'checkpoint.pth.tar', val_loss < best_loss)
+        save_model(model_state,args.model+'-checkpoint.pth.tar', val_loss < best_loss)
         #early stopping
         if val_loss < best_loss:
             best_loss = val_loss
@@ -117,6 +123,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("-model", type=str, default='PlanetNet', help="model name")
     parser.add_argument("-patience", type=int, default=5, help="early stopping patience")
     parser.add_argument("-batch_size", type=int, default=128, help="batch size")
     parser.add_argument("-resume", type=str, default=None, help="resume training model file")

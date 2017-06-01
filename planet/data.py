@@ -44,7 +44,8 @@ class PlanetData(data.Dataset):
     def __getitem__(self, index):
         img_id = self.ids[index]
         if self.targets is None:
-            target = []
+            # loaders only work if we have nonepty y
+            target = torch.zeros(1)
         else:
             img_labels = self.targets[img_id]
             target = torch.zeros(self.n_labels)
