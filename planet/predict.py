@@ -63,12 +63,14 @@ def predict(net,loader):
     return prediction, ground_truth
 
 
-def write_prediction(predictions,idx2tag, threshold,filename):
+def write_prediction(dataset,predictions, thresholds,filename):
     with open(filename,'w') as f:
-        for i,img_id in enumerate(loader.ids):
-            tag_ids = torch.arange(len(idx2tags))[predictions[i,]>threshold]
-            tags = [ idx2tag[idx] for idx in tag_ids]
-            f.write(img_id +', '+' '.join(tags))
+        f.write('image_name,tags\n')
+        for i,img_id in enumerate(dataset.ids):
+            all_ids = np.arange(len(dataset.labels))
+            label_ids = all_ids[predictions[i,].numpy()>np.array(thresholds)]
+            tags = [ dataset.idx2labels[idx] for idx in label_ids]
+            f.write(img_id +','+' '.join(tags)+'\n')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -131,4 +133,4 @@ if __name__ == '__main__':
 
 
     if args.outfile is not None:
-        write_prediction(p, test_data.idx2tags, thresholds, args.outfile)
+        write_prediction(test_data,p, thresholds, args.outfile)
