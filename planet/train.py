@@ -12,9 +12,21 @@ model_names = sorted(name for name in model.__dict__
 
 print model_names
 
+def weighted_binary_cross_entropy(output, target, weights=None):
+
+    if weights is not None:
+        assert len(weights) == 2
+
+        loss = weights[1] * (target * torch.log(output)) + \
+               weights[0] * ((1 - target) * torch.log(1 - output))
+    else:
+        loss = target * torch.log(output) + (1 - target) * torch.log(1 - output)
+
+    return torch.neg(torch.mean(loss))
+
 def weighted_multi_label_loss(p,y,w):
-    return torch.mean(torch.sum(y*torch.log(p)*w
-                                +(1.-y)*torch.log(1.-p),1))
+    return torch.neg(torch.mean(torch.sum(y*torch.log(p)*w
+                                +(1.-y)*torch.log(1.-p),1)))
 
 class WeightedMultiLabelLoss(torch.nn.modules.loss._WeightedLoss):
 
@@ -31,15 +43,15 @@ def train(net,loader,criterion,optimizer,weight):
     for i, (X, y) in enumerate(loader):
         input_var = torch.autograd.Variable(X)
         target_var = torch.autograd.Variable(y)
-        weights = torch.autograd.Variable(weight.repeat(X.size(0),1))
+        weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
 
         output = net(input_var)
-        loss = criterion(output, target_var)
+        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var,weights)#criterion(output, target_var)
         avg_loss += loss.data[0]
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        if i%20 == 0:
+        if i%2 == 0:
             dt = time.time()-start
             pct = float(i+1)/len(loader)
             curr_loss = avg_loss / (i+1)
@@ -49,14 +61,18 @@ def train(net,loader,criterion,optimizer,weight):
                   '%fs remaining'%(dt,pct*100,curr_loss,dt/pct*(1.-pct)))
     return avg_loss / len(loader)
 
-def validate(net,loader,criterion):
+def validate(net,loader,criterion,weight):
     net.eval()
     avg_loss = 0.
     for i, (X, y) in enumerate(loader):
         input_var = torch.autograd.Variable(X)
         target_var = torch.autograd.Variable(y)
         output = net(input_var)
-        loss = criterion(output, target_var)
+        weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
+
+        output = net(input_var)
+        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var,weights)
+        #loss = criterion(output, target_var)
 
         avg_loss += loss.data[0]
     return avg_loss/len(loader)
@@ -113,7 +129,7 @@ def main(args):
         # run 1 training epoch
         train_loss = train(net,train_loader, criterion, optimizer,weights)
         # validate
-        val_loss = validate(net, val_loader, criterion)
+        val_loss = validate(net, val_loader, criterion,weights)
         end = time.time()
         #checkpoint
         print ('epoch %d \t'
