@@ -76,61 +76,67 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-threshold", type=str, default='best', help="decision threshold")
     parser.add_argument("-batch_size", type=int, default=64, help="batch size")
-    parser.add_argument("-outfile", type=str, default=None, help="output file")
-    parser.add_argument("-target_file", type=str, default=None, help="ground truth file")
+    parser.add_argument("-outfile", type=str, default='pred.csv', help="output file")
+    #parser.add_argument("-target_file", type=str, default=None, help="ground truth file")
 
     parser.add_argument("model", type=str, help="model file")
     parser.add_argument("data", type=str, help="data path")
 
     args = parser.parse_args()
 
-    test_data = data.create_dataset(args.data,args.target_file,'data/labels.txt',
+    test_data = data.create_dataset(args.data,None,'data/labels.txt',
     False,None,crop=224)
+
+    val_data = data.create_dataset('data/val','data/img_labels.csv','data/labels.txt',
+    crop=224)
 
 
     restored = torch.load(args.model)
     cfg = restored['cfg']
 
     net = model.PlanetNet(test_data.n_labels, **cfg)
-    net.load_state_dict(restored['state_dict'])
+    net = model.__dict__[restored['arch']](17)
+    #net.load_state_dict(restored['state_dict'])
 
 
     test_loader = torch.utils.data.DataLoader(
             test_data, batch_size=args.batch_size, shuffle=False )
 
-    fname = args.model+".pkl"
-    if os.path.exists(fname):
-        with open(fname,'rb') as f:
-            p,y = pickle.load(f)
-    else:
-        p,y = predict(net,test_loader)
-        with open(fname,'wb') as f:
-            pickle.dump((p,y),f,-1)
 
-    if args.threshold == 'best':
-        thresholds = [0.10344827586206896, 0.10344827586206896, 0.10344827586206896, 0.10344827586206896, 0.34482758620689657, 0.13793103448275862, 0.13793103448275862, 0.068965517241379309, 0.13793103448275862, 0.20689655172413793, 0.17241379310344829, 0.13793103448275862, 0.13793103448275862, 0.13793103448275862, 0.24137931034482757, 0.13793103448275862, 0.068965517241379309]
-    elif args.threshold == 'optimize':
-        if len(y) != 0:
-            thresholds = [0.10344827586206896, 0.10344827586206896, 0.10344827586206896, 0.10344827586206896, 0.34482758620689657, 0.13793103448275862, 0.13793103448275862, 0.068965517241379309, 0.13793103448275862, 0.20689655172413793, 0.17241379310344829, 0.13793103448275862, 0.13793103448275862, 0.13793103448275862, 0.24137931034482757, 0.13793103448275862, 0.068965517241379309]
-            #thresholds = optimize_thresholds(y,p)
-            print 'best thresholds:'
-            print thresholds
-            print 'score %f'%score_threshold(y,p,thresholds)
-            acc = label_accuracy(y,p,thresholds)
-            prec,rec = label_precision_recall(y,p,thresholds)
 
-            for i,l in enumerate(test_data.labels):
-                print('label %s \t'
-                      'acc %f \t'
-                      'prec %f \t'
-                      'rec %f \t'%(l,acc[i],prec[i],rec[i])
-                )
+    if args.threshold == 'optimize':
+        #load validaton set
+        val_loader = torch.utils.data.DataLoader(
+            val_data,
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=2)
+        fname = args.model+".pkl"
+        #get model predictions on val set
+        if os.path.exists(fname):
+            with open(fname,'rb') as f:
+                valp,valy = pickle.load(f)
         else:
-            raise RuntimeError('cannot optimize thresholds without labels')
+            valp,valy = predict(net,val_loader)
+            with open(fname,'wb') as f:
+                pickle.dump((valp,valy),f,-1)
+        #optimize thresholds
+        thresholds = optimize_thresholds(valy,valp)
+        print 'best thresholds:'
+        print thresholds
+        print 'score %f'%score_threshold(valy,valp,thresholds)
+        acc = label_accuracy(valy,valp,thresholds)
+        prec,rec = label_precision_recall(valy,valp,thresholds)
+
+        for i,l in enumerate(val_data.labels):
+            print('label %s \t'
+                  'acc %f \t'
+                  'prec %f \t'
+                  'rec %f \t'%(l,acc[i],prec[i],rec[i])
+            )
+
     else:
         thresholds = [float(args.threshold)] *17
 
 
-
-    if args.outfile is not None:
-        write_prediction(test_data,p, thresholds, args.outfile)
+    p,y = predict(net,test_loader)
+    write_prediction(test_data,p, thresholds, args.outfile)

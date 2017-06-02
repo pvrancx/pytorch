@@ -24,9 +24,9 @@ print model_names
 #
 #     return torch.neg(torch.mean(loss))
 
-def weighted_multi_label_loss(p,y,w):
-    return torch.neg(torch.mean(torch.sum(y*torch.log(p)*w
-                                +(1.-y)*torch.log(1.-p),1)))
+def weighted_multi_label_loss(p,y):
+    return torch.neg(torch.mean(y*torch.log(p+1e-10)*2
+                                +(1.-y)*torch.log(1.-p+1e-10)))
 
 # class WeightedMultiLabelLoss(torch.nn.modules.loss._WeightedLoss):
 #
@@ -46,7 +46,8 @@ def train(net,loader,criterion,optimizer,weight):
         weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
 
         output = net(input_var)
-        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var,weights)#criterion(output, target_var)
+        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
+        #loss = criterion(output, target_var)
         avg_loss += loss.data[0]
         optimizer.zero_grad()
         loss.backward()
@@ -71,7 +72,7 @@ def validate(net,loader,criterion,weight):
         weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
 
         output = net(input_var)
-        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var,weights)
+        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
         #loss = criterion(output, target_var)
 
         avg_loss += loss.data[0]
@@ -90,7 +91,7 @@ def main(args):
     stats = torch.load('positive.pth.tar')
     weights = (1.-stats['positive'])/stats['positive']
     #criterion = WeightedMultiLabelLoss(weight = weights)
-    criterion = torch.nn.MultiLabelSoftMarginLoss(weight = weights)
+    criterion = torch.nn.MultiLabelSoftMarginLoss()
 
 
     #optionally restore weights

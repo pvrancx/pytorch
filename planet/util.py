@@ -4,6 +4,7 @@ import shutil
 import glob
 import numpy as np
 import os
+import torch
 
 def get_unique_labels(fname):
     labels = set()
@@ -16,6 +17,14 @@ def get_unique_labels(fname):
             file_labels = row[1].split(' ')
             labels.update(file_labels)
     return list(labels)
+
+def count_positive_fraction(loader):
+    total = 0
+    counts = torch.zeros(17)
+    for _,y in loader:
+        counts += torch.sum(y,0)
+        total += y.size()[0]
+    return counts/total
 
 
 def split_data(source_dir, split, dest_dirs, hard_move=True):
