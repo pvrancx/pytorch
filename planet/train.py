@@ -51,7 +51,7 @@ def train(net,loader,criterion,optimizer,weight):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        if i%2 == 0:
+        if i%20 == 0:
             dt = time.time()-start
             pct = float(i+1)/len(loader)
             curr_loss = avg_loss / (i+1)
@@ -78,9 +78,10 @@ def validate(net,loader,criterion,weight):
     return avg_loss/len(loader)
 
 def save_model(model_state,filename='checkpoint.pth.tar',is_best=False):
-    torch.save(model_state, model_state['arch']+'-'+filename)
+    fname = model_state['arch']+'-'+filename
+    torch.save(model_state, fname)
     if is_best:
-        shutil.copyfile(filename, model_state['arch']+'-best.pth.tar')
+        shutil.copyfile( fname, model_state['arch']+'-best.pth.tar')
 
 def main(args):
     # create model and optimizer
