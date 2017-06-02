@@ -1,5 +1,6 @@
 import argparse
 import torch
+from torch.autograd import Variable
 import model
 import data
 import time
@@ -11,13 +12,26 @@ model_names = sorted(name for name in model.__dict__
 
 print model_names
 
-def train(net,loader,criterion,optimizer):
+def weighted_multi_label_loss(p,y,w):
+    return torch.mean(torch.sum(y*torch.log(p)*w
+                                +(1.-y)*torch.log(1.-p),1))
+
+class WeightedMultiLabelLoss(torch.nn.modules.loss._WeightedLoss):
+
+    def forward(self, input, target):
+        #_assert_no_grad(target)
+        weight = Variable(torch.zeros(input.size()))#self.weight.repeat(input.size(0),1))
+        return weighted_multi_label_loss(torch.sigmoid(input), target,
+                               weight)
+
+def train(net,loader,criterion,optimizer,weight):
     net.train()
     avg_loss = 0.
     start = time.time()
     for i, (X, y) in enumerate(loader):
         input_var = torch.autograd.Variable(X)
         target_var = torch.autograd.Variable(y)
+        weights = torch.autograd.Variable(weight.repeat(X.size(0),1))
 
         output = net(input_var)
         loss = criterion(output, target_var)
@@ -25,7 +39,7 @@ def train(net,loader,criterion,optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        if i%50 == 0:
+        if i%20 == 0:
             dt = time.time()-start
             pct = float(i+1)/len(loader)
             curr_loss = avg_loss / (i+1)
@@ -56,7 +70,11 @@ def main(args):
     # create model and optimizer
     net = model.__dict__[args.model](17)
     optimizer = torch.optim.Adam(net.parameters())
-    criterion = torch.nn.MultiLabelSoftMarginLoss()
+    stats = torch.load('positive.pth.tar')
+    weights = (1.-stats['positive'])/stats['positive']
+    #criterion = WeightedMultiLabelLoss(weight = weights)
+    criterion = torch.nn.MultiLabelSoftMarginLoss(weight = weights)
+
 
     #optionally restore weights
     if args.resume is not None:
@@ -93,7 +111,7 @@ def main(args):
     for e in range(args.nepochs):
         start = time.time()
         # run 1 training epoch
-        train_loss = train(net,train_loader, criterion, optimizer)
+        train_loss = train(net,train_loader, criterion, optimizer,weights)
         # validate
         val_loss = validate(net, val_loader, criterion)
         end = time.time()
