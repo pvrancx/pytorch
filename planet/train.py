@@ -12,29 +12,29 @@ model_names = sorted(name for name in model.__dict__
 
 print model_names
 
-def weighted_binary_cross_entropy(output, target, weights=None):
-
-    if weights is not None:
-        assert len(weights) == 2
-
-        loss = weights[1] * (target * torch.log(output)) + \
-               weights[0] * ((1 - target) * torch.log(1 - output))
-    else:
-        loss = target * torch.log(output) + (1 - target) * torch.log(1 - output)
-
-    return torch.neg(torch.mean(loss))
+# def weighted_binary_cross_entropy(output, target, weights=None):
+#
+#     if weights is not None:
+#         assert len(weights) == 2
+#
+#         loss = weights[1] * (target * torch.log(output)) + \
+#                weights[0] * ((1 - target) * torch.log(1 - output))
+#     else:
+#         loss = target * torch.log(output) + (1 - target) * torch.log(1 - output)
+#
+#     return torch.neg(torch.mean(loss))
 
 def weighted_multi_label_loss(p,y,w):
     return torch.neg(torch.mean(torch.sum(y*torch.log(p)*w
                                 +(1.-y)*torch.log(1.-p),1)))
 
-class WeightedMultiLabelLoss(torch.nn.modules.loss._WeightedLoss):
-
-    def forward(self, input, target):
-        #_assert_no_grad(target)
-        weight = Variable(torch.zeros(input.size()))#self.weight.repeat(input.size(0),1))
-        return weighted_multi_label_loss(torch.sigmoid(input), target,
-                               weight)
+# class WeightedMultiLabelLoss(torch.nn.modules.loss._WeightedLoss):
+#
+#     def forward(self, input, target):
+#         #_assert_no_grad(target)
+#         weight = Variable(torch.zeros(input.size()))#self.weight.repeat(input.size(0),1))
+#         return weighted_multi_label_loss(torch.sigmoid(input), target,
+#                                weight)
 
 def train(net,loader,criterion,optimizer,weight):
     net.train()
