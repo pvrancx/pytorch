@@ -105,7 +105,7 @@ def main(args):
     train_trans.append(transforms.ToTensor())
     val_trans.append(transforms.ToTensor())
 
-    net = model.__dict__[args.model](input_size=siz,num_labels=17)
+    net = model.__dict__[args.model](input_size=siz,num_labels=17,dropout=args.dropout)
     optimizer = torch.optim.Adam(net.parameters())
     stats = torch.load('positive.pth.tar')
     weights = (1.-stats['positive'])/stats['positive']
@@ -184,6 +184,7 @@ if __name__ == '__main__':
     parser.add_argument("-crop", type=int, default=0, help="crop size")
     parser.add_argument("-scale", type=int, default=0, help="scale size")
     parser.add_argument("-flip", type=bool, default=True, help="random flips")
+    parser.add_argument("-dropout", type=float, default=0.5, help="dropout")
 
 
     parser.add_argument("-batch_size", type=int, default=128, help="batch size")
