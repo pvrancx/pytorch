@@ -6,6 +6,33 @@ import numpy as np
 import os
 import torch
 
+def conv_output(l,size):
+    w,h = size
+    F = l.kernel_size
+    S = l.stride
+    P = l.padding
+    w2= (w-F[0]+2*P[0])/S[0]+1
+    h2 =(h-F[1]+2*P[1])/S[1]+1
+    return w2,h2
+
+def pool_output(l,size):
+    w,h = size
+    F = l.kernel_size
+    S = l.stride
+    P = l.padding
+    w2 = (w-F)/S+1
+    h2 = (h-F)/S+1
+    return w2,h2
+
+def calculate_feature_size(model,input_size):
+    size = input_size
+    for l in model:
+        if type(l) == torch.nn.Conv2d:
+            size = conv_output(l,size)
+        elif type(l) == torch.nn.MaxPool2d:
+            size = pool_output(l,size)
+    return size
+
 def get_unique_labels(fname):
     labels = set()
     with open(fname, 'rb') as csvfile:

@@ -85,7 +85,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     test_data = data.create_dataset(args.data,None,'data/labels.txt',
-    False,None,crop=224)
+    False,crop=224)
 
     val_data = data.create_dataset('data/val','data/img_labels.csv','data/labels.txt',
     crop=224)

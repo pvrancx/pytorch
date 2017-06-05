@@ -25,7 +25,7 @@ print model_names
 #     return torch.neg(torch.mean(loss))
 
 def weighted_multi_label_loss(p,y):
-    return torch.neg(torch.mean(y*torch.log(p+1e-10)*2
+    return torch.neg(torch.mean(y*torch.log(p+1e-10)*0.1
                                 +(1.-y)*torch.log(1.-p+1e-10)))
 
 # class WeightedMultiLabelLoss(torch.nn.modules.loss._WeightedLoss):
@@ -46,8 +46,8 @@ def train(net,loader,criterion,optimizer,weight):
         weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
 
         output = net(input_var)
-        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
-        #loss = criterion(output, target_var)
+        #loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
+        loss = criterion(output, target_var)
         avg_loss += loss.data[0]
         optimizer.zero_grad()
         loss.backward()
@@ -72,8 +72,8 @@ def validate(net,loader,criterion,weight):
         weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
 
         output = net(input_var)
-        loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
-        #loss = criterion(output, target_var)
+        #loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
+        loss = criterion(output, target_var)
 
         avg_loss += loss.data[0]
     return avg_loss/len(loader)
@@ -86,7 +86,23 @@ def save_model(model_state,filename='checkpoint.pth.tar',is_best=False):
 
 def main(args):
     # create model and optimizer
-    net = model.__dict__[args.model](17)
+    train_trans = []
+    val_trans = []
+    if args.flip:
+        train_trans.append(transforms.RandomHorizontalFlip())
+    if args.scale > 0:
+        train_trans.append(transforms.Scale(args.scale))
+        val_trans.append(transforms.Scale(args.scale))
+        siz = args.scale
+    if args.crop > 0:
+        train_trans.append(transforms.RandomCrop(args.crop))
+        val_trans.append(transforms.CenterCrop(args.crop))
+        siz = args.crop
+
+    train_trans.append(transforms.ToTensor())
+    val_trans.append(transforms.ToTensor())
+
+    net = model.__dict__[args.model](input=siz,num_labels=17)
     optimizer = torch.optim.Adam(net.parameters())
     stats = torch.load('positive.pth.tar')
     weights = (1.-stats['positive'])/stats['positive']
@@ -108,11 +124,11 @@ def main(args):
     train_data = data.create_dataset(args.datapath +'/train',
                                      args.datapath + '/img_labels.csv',
                                      args.datapath + '/labels.txt',
-                                     crop=224)
+                                     scale=64)
     val_data = data.create_dataset(args.datapath +'/val',
                                    args.datapath + '/img_labels.csv',
                                    args.datapath + '/labels.txt',
-                                   crop=224)
+                                   scale=64)
 
     train_loader = torch.utils.data.DataLoader(
         train_data,
@@ -162,6 +178,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-model", type=str, default='PlanetNet', help="model name")
     parser.add_argument("-patience", type=int, default=5, help="early stopping patience")
+    parser.add_argument("-crop", type=int, default=0, help="crop size")
+    parser.add_argument("-scale", type=int, default=0, help="scale size")
+    parser.add_argument("-flip", type=bool, default=True, help="random flips")
+
+
     parser.add_argument("-batch_size", type=int, default=128, help="batch size")
     parser.add_argument("-resume", type=str, default=None, help="resume training model file")
     parser.add_argument("-nepochs", type=int, default=100, help="max epochs")
