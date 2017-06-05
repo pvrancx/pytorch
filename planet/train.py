@@ -4,6 +4,8 @@ from torch.autograd import Variable
 import model
 import data
 import time
+import torchvision.transforms as transforms
+
 import shutil
 
 model_names = sorted(name for name in model.__dict__
@@ -88,21 +90,22 @@ def main(args):
     # create model and optimizer
     train_trans = []
     val_trans = []
+    siz = (256,256)
     if args.flip:
         train_trans.append(transforms.RandomHorizontalFlip())
     if args.scale > 0:
         train_trans.append(transforms.Scale(args.scale))
         val_trans.append(transforms.Scale(args.scale))
-        siz = args.scale
+        siz = (args.scale,args.scale)
     if args.crop > 0:
         train_trans.append(transforms.RandomCrop(args.crop))
         val_trans.append(transforms.CenterCrop(args.crop))
-        siz = args.crop
+        siz = (args.crop,args.crop)
 
     train_trans.append(transforms.ToTensor())
     val_trans.append(transforms.ToTensor())
 
-    net = model.__dict__[args.model](input=siz,num_labels=17)
+    net = model.__dict__[args.model](input_size=siz,num_labels=17)
     optimizer = torch.optim.Adam(net.parameters())
     stats = torch.load('positive.pth.tar')
     weights = (1.-stats['positive'])/stats['positive']
@@ -121,14 +124,14 @@ def main(args):
         best_loss = 1e10
 
     # load data
-    train_data = data.create_dataset(args.datapath +'/train',
+    train_data = data.PlanetData(args.datapath +'/train',
                                      args.datapath + '/img_labels.csv',
                                      args.datapath + '/labels.txt',
-                                     scale=64)
-    val_data = data.create_dataset(args.datapath +'/val',
+                                     transform=train_trans)
+    val_data = data.PlanetData(args.datapath +'/val',
                                    args.datapath + '/img_labels.csv',
                                    args.datapath + '/labels.txt',
-                                   scale=64)
+                                   transform=val_trans)
 
     train_loader = torch.utils.data.DataLoader(
         train_data,

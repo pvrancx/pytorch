@@ -39,7 +39,7 @@ class PlanetData(data.Dataset):
             self.targets = None
         else:
             self.targets = load_img_labels(target_file)
-        self.transform = transform
+        self.transform = transforms.Compose(transform)
 
     def __getitem__(self, index):
         img_id = self.ids[index]
