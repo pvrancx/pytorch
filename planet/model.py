@@ -122,6 +122,6 @@ class PlanetNetSmall(PlanetNet):
 
 class PlanetResNet(resnet.ResNet):
     def __init__(self,input_size=(224,224),num_labels=17, dropout=0.4, feature_maps=256,**kwargs):
-        super(PlanetResNet, self).__init__(resnet.BasicBlock, [3, 4, 6, 3],num_classes= num_labels, **kwargs)
+        super(PlanetResNet, self).__init__(resnet.BasicBlock, [2, 2, 2, 2],num_classes= num_labels, **kwargs)
         self.cfg = copy.copy(locals())
         self.cfg.pop('self')
