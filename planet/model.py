@@ -28,7 +28,7 @@ class PlanetNet(nn.Module):
             nn.Conv2d(384, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, feature_maps, kernel_size=3, padding=1),
+            nn.Conv2d(256, self.feature_maps, kernel_size=3, padding=1),
             nn.BatchNorm2d(self.feature_maps),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
@@ -36,7 +36,7 @@ class PlanetNet(nn.Module):
         self.feature_size = util.calculate_feature_size(self.features,self.input_size)
         self.classifier = nn.Sequential(
             nn.Dropout(p=self.dropout),
-            nn.Linear(feature_maps * self.feature_size[0] * self.feature_size[1], 1024),
+            nn.Linear(self.feature_maps * self.feature_size[0] * self.feature_size[1], 1024),
             nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
             nn.Dropout(p=self.dropout),

@@ -38,18 +38,18 @@ def weighted_multi_label_loss(p,y):
 #         return weighted_multi_label_loss(torch.sigmoid(input), target,
 #                                weight)
 
-def train(net,loader,criterion,optimizer,weight):
+def train(net,loader,criterion,optimizer):
     net.train()
     avg_loss = 0.
     start = time.time()
     for i, (X, y) in enumerate(loader):
         input_var = torch.autograd.Variable(X)
         target_var = torch.autograd.Variable(y)
-        weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
+    #    weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
 
         output = net(input_var)
         #loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
-        loss = criterion(output, target_var)
+        loss = criterion(torch.sigmoid(output), target_var)
         avg_loss += loss.data[0]
         optimizer.zero_grad()
         loss.backward()
@@ -64,18 +64,18 @@ def train(net,loader,criterion,optimizer,weight):
                   '%fs remaining'%(dt,pct*100,curr_loss,dt/pct*(1.-pct)))
     return avg_loss / len(loader)
 
-def validate(net,loader,criterion,weight):
+def validate(net,loader,criterion):
     net.eval()
     avg_loss = 0.
     for i, (X, y) in enumerate(loader):
         input_var = torch.autograd.Variable(X)
         target_var = torch.autograd.Variable(y)
         output = net(input_var)
-        weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
+        #weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
 
         output = net(input_var)
         #loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
-        loss = criterion(output, target_var)
+        loss = criterion(torch.sigmoid(output), target_var)
 
         avg_loss += loss.data[0]
     return avg_loss/len(loader)
@@ -107,10 +107,10 @@ def main(args):
 
     net = model.__dict__[args.model](input_size=siz,num_labels=17,dropout=args.dropout)
     optimizer = torch.optim.Adam(net.parameters())
-    stats = torch.load('positive.pth.tar')
-    weights = (1.-stats['positive'])/stats['positive']
+    #stats = torch.load('positive.pth.tar')
+    #weights = (1.-stats['positive'])/stats['positive']
     #criterion = WeightedMultiLabelLoss(weight = weights)
-    criterion = torch.nn.MultiLabelSoftMarginLoss()
+    criterion = torch.nn.BCELoss()#torch.nn.MultiLabelSoftMarginLoss()
 
 
     #optionally restore weights
@@ -148,9 +148,9 @@ def main(args):
     for e in range(args.nepochs):
         start = time.time()
         # run 1 training epoch
-        train_loss = train(net,train_loader, criterion, optimizer,weights)
+        train_loss = train(net,train_loader, criterion, optimizer)
         # validate
-        val_loss = validate(net, val_loader, criterion,weights)
+        val_loss = validate(net, val_loader, criterion)
         end = time.time()
         #checkpoint
         print ('epoch %d \t'

@@ -3,6 +3,8 @@ from sklearn.metrics import fbeta_score
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
+import torchvision.transforms as transforms
+
 
 import data
 import model
@@ -77,26 +79,46 @@ if __name__ == '__main__':
     parser.add_argument("-threshold", type=str, default='best', help="decision threshold")
     parser.add_argument("-batch_size", type=int, default=64, help="batch size")
     parser.add_argument("-outfile", type=str, default='pred.csv', help="output file")
-    #parser.add_argument("-target_file", type=str, default=None, help="ground truth file")
+    parser.add_argument("-crop", type=int, default=0, help="crop size")
+    parser.add_argument("-scale", type=int, default=0, help="scale size")
+    parser.add_argument("-flip", type=bool, default=True, help="random flips")
 
     parser.add_argument("model", type=str, help="model file")
     parser.add_argument("data", type=str, help="data path")
 
     args = parser.parse_args()
 
-    test_data = data.create_dataset(args.data,None,'data/labels.txt',
-    False,crop=224)
+    # create model and optimizer
+    test_trans = []
+    val_trans = []
+    if args.flip:
+        val_trans.append(transforms.RandomHorizontalFlip())
+    if args.scale > 0:
+        test_trans.append(transforms.Scale(args.scale))
+        val_trans.append(transforms.Scale(args.scale))
+    if args.crop > 0:
+        test_trans.append(transforms.CenterCrop(args.crop))
+        val_trans.append(transforms.CenterCrop(args.crop))
 
-    val_data = data.create_dataset('data/val','data/img_labels.csv','data/labels.txt',
-    crop=224)
+    test_trans.append(transforms.ToTensor())
+    val_trans.append(transforms.ToTensor())
+
+    test_data = data.PlanetData(args.data,None,'data/labels.txt',
+    transform=test_trans)
+
+    val_data = data.PlanetData('data/val','data/img_labels.csv','data/labels.txt',
+    transform=val_trans)
 
 
     restored = torch.load(args.model)
+    print(restored['cfg'])
     cfg = restored['cfg']
 
-    net = model.PlanetNet(test_data.n_labels, **cfg)
-    net = model.__dict__[restored['arch']](17)
+
+    net = model.__dict__[restored['arch']](**cfg)
     #net.load_state_dict(restored['state_dict'])
+
+
 
 
     test_loader = torch.utils.data.DataLoader(
@@ -112,13 +134,9 @@ if __name__ == '__main__':
             num_workers=2)
         fname = args.model+".pkl"
         #get model predictions on val set
-        if os.path.exists(fname):
-            with open(fname,'rb') as f:
-                valp,valy = pickle.load(f)
-        else:
-            valp,valy = predict(net,val_loader)
-            with open(fname,'wb') as f:
-                pickle.dump((valp,valy),f,-1)
+        valp,valy = predict(net,val_loader)
+        with open(fname,'wb') as f:
+            pickle.dump((valp,valy),f,-1)
         #optimize thresholds
         thresholds = optimize_thresholds(valy,valp)
         print 'best thresholds:'
