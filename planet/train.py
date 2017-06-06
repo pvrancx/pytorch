@@ -103,7 +103,10 @@ def main(args):
         siz = (args.crop,args.crop)
 
     train_trans.append(transforms.ToTensor())
+    train_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
     val_trans.append(transforms.ToTensor())
+    val_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+
 
     net = model.__dict__[args.model](input_size=siz,num_labels=17,dropout=args.dropout)
     optimizer = torch.optim.Adam(net.parameters())

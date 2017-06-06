@@ -101,7 +101,10 @@ if __name__ == '__main__':
         val_trans.append(transforms.CenterCrop(args.crop))
 
     test_trans.append(transforms.ToTensor())
+    test_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
     val_trans.append(transforms.ToTensor())
+    val_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+
 
     test_data = data.PlanetData(args.data,None,'data/labels.txt',
     transform=test_trans)

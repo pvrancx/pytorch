@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch
 import util
 import copy
+from torchvision.models import resnet
 
 class PlanetNet(nn.Module):
     def __init__(self,input_size=(224,224),num_labels=17, dropout=0.4, feature_maps=256):
@@ -118,3 +119,9 @@ class PlanetNetSmall(PlanetNet):
             nn.ReLU(inplace=True),
             nn.Linear(64, self.n_labels),
         )
+
+class PlanetResNet(resnet.ResNet):
+    def __init__(self,input_size=(224,224),num_labels=17, dropout=0.4, feature_maps=256,**kwargs):
+        super(PlanetResNet, self).__init__(resnet.BasicBlock, [3, 4, 6, 3],num_classes= num_labels, **kwargs)
+        self.cfg = copy.copy(locals())
+        self.cfg.pop('self')
