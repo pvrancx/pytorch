@@ -2,6 +2,7 @@ import argparse
 import torch
 from torch.autograd import Variable
 import model
+import util
 import data
 import time
 import torchvision.transforms as transforms
@@ -38,7 +39,7 @@ def weighted_multi_label_loss(p,y):
 #         return weighted_multi_label_loss(torch.sigmoid(input), target,
 #                                weight)
 
-def train(net,loader,criterion,optimizer):
+def train(net,loader,criterion,optimizer,decay=0.):
     net.train()
     avg_loss = 0.
     start = time.time()
@@ -50,6 +51,12 @@ def train(net,loader,criterion,optimizer):
         output = net(input_var)
         #loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
         loss = criterion(torch.sigmoid(output), target_var)
+        l1_crit = torch.nn.L1Loss(size_average=False)
+        reg_loss = 0
+        for param in net.parameters():
+            reg_loss += l1_crit(param,Variable(torch.zeros(param.size()),requires_grad=False))
+        loss += decay * reg_loss
+
         avg_loss += loss.data[0]
         optimizer.zero_grad()
         loss.backward()
@@ -68,7 +75,7 @@ def validate(net,loader,criterion):
     net.eval()
     avg_loss = 0.
     for i, (X, y) in enumerate(loader):
-        input_var = torch.autograd.Variable(X)
+        input_var = torch.autograd.Variable(X, volatile=True) #no backprop
         target_var = torch.autograd.Variable(y)
         output = net(input_var)
         #weights = torch.autograd.Variable(weight.repeat(X.size(0),1),requires_grad=False)
@@ -93,8 +100,15 @@ def main(args):
     siz = (256,256)
     if args.flip:
         train_trans.append(transforms.RandomHorizontalFlip())
+        train_trans.append(util.RandomVerticalFlip())
+    if args.rotate:
+        train_trans.append(util.RandomVerticalFlip())
+    if args.translate:
+        train_trans.append(util.RandomTranslation())
     if args.scale > 0:
+        train_trans.append(transforms.CenterCrop(224))
         train_trans.append(transforms.Scale(args.scale))
+        val_trans.append(transforms.CenterCrop(224))
         val_trans.append(transforms.Scale(args.scale))
         siz = (args.scale,args.scale)
     if args.crop > 0:
@@ -103,18 +117,19 @@ def main(args):
         siz = (args.crop,args.crop)
 
     train_trans.append(transforms.ToTensor())
-    train_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+    #train_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
     val_trans.append(transforms.ToTensor())
-    val_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
+#    val_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
 
 
-    net = model.__dict__[args.model](input_size=siz,num_labels=17,dropout=args.dropout)
-    optimizer = torch.optim.Adam(net.parameters())
+    net = model.__dict__[args.model](input_size=siz,num_labels=17,dropout=args.dropout,feature_maps=args.features)
+    print net
+    optimizer = torch.optim.Adam(net.parameters(),weight_decay=args.l2_decay)
     #stats = torch.load('positive.pth.tar')
     #weights = (1.-stats['positive'])/stats['positive']
     #criterion = WeightedMultiLabelLoss(weight = weights)
-    criterion = torch.nn.BCELoss()#torch.nn.MultiLabelSoftMarginLoss()
-
+    criterion = torch.nn.MultiLabelSoftMarginLoss()#torch.nn.BCELoss()#torch.nn.MultiLabelSoftMarginLoss()
+    print net.feature_size
 
     #optionally restore weights
     if args.resume is not None:
@@ -151,7 +166,7 @@ def main(args):
     for e in range(args.nepochs):
         start = time.time()
         # run 1 training epoch
-        train_loss = train(net,train_loader, criterion, optimizer)
+        train_loss = train(net,train_loader, criterion, optimizer, decay=args.l1_decay)
         # validate
         val_loss = validate(net, val_loader, criterion)
         end = time.time()
@@ -186,9 +201,14 @@ if __name__ == '__main__':
     parser.add_argument("-patience", type=int, default=5, help="early stopping patience")
     parser.add_argument("-crop", type=int, default=0, help="crop size")
     parser.add_argument("-scale", type=int, default=0, help="scale size")
+    parser.add_argument("-features", type=int, default=64, help="feature maps")
     parser.add_argument("-flip", type=bool, default=True, help="random flips")
-    parser.add_argument("-dropout", type=float, default=0.5, help="dropout")
+    parser.add_argument("-rotate", type=bool, default=True, help="random rotation")
+    parser.add_argument("-translate", type=bool, default=True, help="random translation")
 
+    parser.add_argument("-dropout", type=float, default=0.5, help="dropout")
+    parser.add_argument("-l1_decay", type=float, default=0., help="l1 weight decay")
+    parser.add_argument("-l2_decay", type=float, default=0., help="l2 weight decay")
 
     parser.add_argument("-batch_size", type=int, default=128, help="batch size")
     parser.add_argument("-resume", type=str, default=None, help="resume training model file")

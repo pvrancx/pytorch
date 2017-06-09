@@ -5,6 +5,15 @@ import util
 import copy
 from torchvision.models import resnet
 
+def make_conv(nin,nout,kernel_size=3,stride=1,padding=0):
+    return nn.Sequential(
+        nn.Conv2d(nin, nout, kernel_size=kernel_size, stride=stride, padding=padding),
+        nn.BatchNorm2d(nout),
+        nn.PReLU(),
+    )
+
+
+
 class PlanetNet(nn.Module):
     def __init__(self,input_size=(224,224),num_labels=17, dropout=0.4, feature_maps=256):
         super(PlanetNet, self).__init__()
@@ -14,7 +23,14 @@ class PlanetNet(nn.Module):
         self.feature_maps =feature_maps
         self.input_size = input_size
         self.n_labels = num_labels
-        self.features = nn.Sequential(
+        self.features = self._build_features()
+
+
+        self.feature_size = util.calculate_feature_size(self.features,self.input_size)
+        self.classifier = self._build_classifier()
+
+    def _build_features(self):
+        return nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
@@ -34,8 +50,8 @@ class PlanetNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
         )
-        self.feature_size = util.calculate_feature_size(self.features,self.input_size)
-        self.classifier = nn.Sequential(
+    def _build_classifier(self):
+        return nn.Sequential(
             nn.Dropout(p=self.dropout),
             nn.Linear(self.feature_maps * self.feature_size[0] * self.feature_size[1], 1024),
             nn.BatchNorm1d(1024),
@@ -55,8 +71,11 @@ class PlanetNet(nn.Module):
 
 class PlanetNetLight(PlanetNet):
     def __init__(self,**kwargs):
+        print 'Light'
+
         super(PlanetNetLight, self).__init__(**kwargs)
-        self.features = nn.Sequential(
+    def _build_features(self):
+        return nn.Sequential(
             nn.Conv2d(3, 8, kernel_size=11, stride=4, padding=2),
             nn.BatchNorm2d(8),
             nn.ReLU(inplace=True),
@@ -76,9 +95,9 @@ class PlanetNetLight(PlanetNet):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
         )
-        self.feature_size = util.calculate_feature_size(self.features,self.input_size)
 
-        self.classifier = nn.Sequential(
+    def _build_classifier(self):
+        return nn.Sequential(
             nn.Dropout(p=self.dropout),
             nn.Linear(self.feature_maps*self.feature_size[0] * self.feature_size[1], 128),
             nn.BatchNorm1d(128),
@@ -95,29 +114,31 @@ class PlanetNetLight(PlanetNet):
 class PlanetNetSmall(PlanetNet):
     def __init__(self,**kwargs):
         super(PlanetNetSmall, self).__init__(**kwargs)
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 8, kernel_size=6, stride=2, padding=2),
-            nn.BatchNorm2d(8),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(8, 24, kernel_size=3, padding=1),
-            nn.BatchNorm2d(24),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(24, self.feature_maps, kernel_size=3, padding=1),
-            nn.BatchNorm2d(self.feature_maps),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-        )
-        self.feature_size = util.calculate_feature_size(self.features,self.input_size)
 
-        self.classifier = nn.Sequential(
-            nn.Dropout(p=self.dropout),
-            nn.Linear(self.feature_maps*self.feature_size[0] * self.feature_size[1], 64),
-            nn.BatchNorm1d(64),
+    def _build_features(self):
+        return nn.Sequential(
+            make_conv(3,8,kernel_size=1,stride=1,padding=0),
+            make_conv(8,8,kernel_size=3,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            make_conv(8,32,kernel_size=1,stride=1,padding=0),
+            make_conv(32,32,kernel_size=3,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            make_conv(32,self.feature_maps,kernel_size=1,stride=1,padding=0),
+            make_conv(self.feature_maps,self.feature_maps,kernel_size=5,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+
+    def _build_classifier(self):
+        return  nn.Sequential(
+            nn.Linear(self.feature_maps*self.feature_size[0] * self.feature_size[1], 256),
+            nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
             nn.Dropout(p=self.dropout),
+            nn.Linear(256, 256),
+            nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(64, self.n_labels),
+            nn.Dropout(p=self.dropout),
+            nn.Linear(256, self.n_labels),
         )
 
 class PlanetResNet(resnet.ResNet):

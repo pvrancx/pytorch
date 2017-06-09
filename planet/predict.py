@@ -116,7 +116,7 @@ if __name__ == '__main__':
     restored = torch.load(args.model)
     print(restored['cfg'])
     cfg = restored['cfg']
-    cfg.pop('kwargs')
+    cfg.pop('kwargs',None)
 
     net = model.__dict__[restored['arch']](**cfg)
     #net.load_state_dict(restored['state_dict'])
