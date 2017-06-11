@@ -109,8 +109,36 @@ class PlanetNetLight(PlanetNet):
             nn.Linear(128, self.n_labels),
         )
 
+class PlanetNetNiN(PlanetNet):
+    def __init__(self,**kwargs):
+        super(PlanetNetNiN, self).__init__(**kwargs)
 
+    def _build_features(self):
+        return nn.Sequential(
+            make_conv(3,8,kernel_size=1,stride=1,padding=0),
+            make_conv(8,32,kernel_size=5,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            make_conv(32,8,kernel_size=1,stride=1,padding=0),
+            make_conv(8,8,kernel_size=5,stride=1,padding=0),
+            make_conv(8,64,kernel_size=1,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            make_conv(64,64,kernel_size=1,stride=1,padding=0),
+            make_conv(64,self.feature_maps,kernel_size=3,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
 
+    def _build_classifier(self):
+        return  nn.Sequential(
+            nn.Linear(self.feature_maps*self.feature_size[0] * self.feature_size[1], 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=self.dropout),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=self.dropout),
+            nn.Linear(512, self.n_labels),
+        )
 class PlanetNetSmall(PlanetNet):
     def __init__(self,**kwargs):
         super(PlanetNetSmall, self).__init__(**kwargs)
@@ -139,6 +167,53 @@ class PlanetNetSmall(PlanetNet):
             nn.ReLU(inplace=True),
             nn.Dropout(p=self.dropout),
             nn.Linear(256, self.n_labels),
+        )
+
+class PlanetNetKirk(PlanetNet):
+
+    def __init__(self,**kwargs):
+        super(PlanetNetKirk, self).__init__(**kwargs)
+        self.feature_maps=128
+
+    def _build_features(self):
+        return nn.Sequential(
+            make_conv(3,8,kernel_size=1,stride=1,padding=0),
+            make_conv(8,8,kernel_size=1,stride=1,padding=0),
+            make_conv(8,8,kernel_size=1,stride=1,padding=0),
+
+            make_conv(8,32,kernel_size=3,stride=1,padding=0),
+            make_conv(32,32,kernel_size=1,stride=1,padding=0),
+            make_conv(32,32,kernel_size=1,stride=1,padding=0),
+            make_conv(32,32,kernel_size=1,stride=1,padding=0),
+            make_conv(32,32,kernel_size=3,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=1),
+
+            make_conv(32,64,kernel_size=3,stride=1,padding=0),
+            make_conv(64,64,kernel_size=1,stride=1,padding=0),
+            make_conv(64,64,kernel_size=1,stride=1,padding=0),
+            make_conv(64,64,kernel_size=1,stride=1,padding=0),
+            make_conv(64,64,kernel_size=3,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=1),
+
+            make_conv(64,128,kernel_size=3,stride=1,padding=0),
+            make_conv(128,128,kernel_size=1,stride=1,padding=0),
+            make_conv(128,128,kernel_size=1,stride=1,padding=0),
+            make_conv(128,128,kernel_size=1,stride=1,padding=0),
+            make_conv(128,128,kernel_size=3,stride=1,padding=0),
+            nn.MaxPool2d(kernel_size=2, stride=1)
+        )
+
+    def _build_classifier(self):
+        return  nn.Sequential(
+            nn.Linear(128*33*33,512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=self.dropout),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=self.dropout),
+            nn.Linear(512, self.n_labels),
         )
 
 class PlanetResNet(resnet.ResNet):
