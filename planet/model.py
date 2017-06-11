@@ -5,6 +5,7 @@ import util
 import copy
 from torchvision.models import resnet
 
+
 def make_conv(nin,nout,kernel_size=3,stride=1,padding=0):
     return nn.Sequential(
         nn.Conv2d(nin, nout, kernel_size=kernel_size, stride=stride, padding=padding),
@@ -205,7 +206,7 @@ class PlanetNetKirk(PlanetNet):
 
     def _build_classifier(self):
         return  nn.Sequential(
-            nn.Linear(128*33*33,512),
+            nn.Linear(128*self.feature_size[0] * self.feature_size[1],512),
             nn.BatchNorm1d(512),
             nn.ReLU(inplace=True),
             nn.Dropout(p=self.dropout),
