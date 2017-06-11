@@ -50,14 +50,15 @@ def train(net,loader,criterion,optimizer,decay=0.):
 
         output = net(input_var)
         #loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
-        loss = criterion(torch.sigmoid(output), target_var)
+        loss = criterion(output, target_var)
+        avg_loss += loss.data[0]
+
         l1_crit = torch.nn.L1Loss(size_average=False)
         reg_loss = 0
         for param in net.parameters():
             reg_loss += l1_crit(param,Variable(torch.zeros(param.size()),requires_grad=False))
         loss += decay * reg_loss
 
-        avg_loss += loss.data[0]
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -82,7 +83,7 @@ def validate(net,loader,criterion):
 
         output = net(input_var)
         #loss = weighted_multi_label_loss(torch.sigmoid(output),target_var)
-        loss = criterion(torch.sigmoid(output), target_var)
+        loss = criterion(output, target_var)
 
         avg_loss += loss.data[0]
     return avg_loss/len(loader)
@@ -97,6 +98,7 @@ def main(args):
     # create model and optimizer
     train_trans = []
     val_trans = []
+    debug_trans=[]
     siz = (256,256)
     if args.flip:
         train_trans.append(transforms.RandomHorizontalFlip())
@@ -110,15 +112,20 @@ def main(args):
         train_trans.append(transforms.Scale(args.scale))
         val_trans.append(transforms.CenterCrop(224))
         val_trans.append(transforms.Scale(args.scale))
+        debug_trans.append(transforms.CenterCrop(224))
+        debug_trans.append(transforms.Scale(args.scale))
         siz = (args.scale,args.scale)
     if args.crop > 0:
         train_trans.append(transforms.RandomCrop(args.crop))
         val_trans.append(transforms.CenterCrop(args.crop))
+        debug_trans.append(transforms.CenterCrop(args.crop))
+
         siz = (args.crop,args.crop)
 
     train_trans.append(transforms.ToTensor())
     #train_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
     val_trans.append(transforms.ToTensor())
+    debug_trans.append(transforms.ToTensor())
 #    val_trans.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
 
 
@@ -142,6 +149,10 @@ def main(args):
         best_loss = 1e10
 
     # load data
+    debug_data = data.PlanetData(args.datapath +'/debug',
+                                         args.datapath + '/img_labels.csv',
+                                         args.datapath + '/labels.txt',
+                                         transform=debug_trans)
     train_data = data.PlanetData(args.datapath +'/train',
                                      args.datapath + '/img_labels.csv',
                                      args.datapath + '/labels.txt',
@@ -150,7 +161,10 @@ def main(args):
                                    args.datapath + '/img_labels.csv',
                                    args.datapath + '/labels.txt',
                                    transform=val_trans)
-
+    debug_loader = torch.utils.data.DataLoader(
+        debug_data,
+        batch_size=args.batch_size, shuffle=True,
+        num_workers=args.workers)
     train_loader = torch.utils.data.DataLoader(
         train_data,
         batch_size=args.batch_size, shuffle=True,
@@ -166,9 +180,14 @@ def main(args):
     for e in range(args.nepochs):
         start = time.time()
         # run 1 training epoch
-        train_loss = train(net,train_loader, criterion, optimizer, decay=args.l1_decay)
+        if args.debug:
+            train_loss = train(net,debug_loader, criterion, optimizer, decay=args.l1_decay)
+            val_loss = 0.
+        else:
+            train_loss = train(net,train_loader, criterion, optimizer, decay=args.l1_decay)
+            val_loss = validate(net, val_loader, criterion)
+
         # validate
-        val_loss = validate(net, val_loader, criterion)
         end = time.time()
         #checkpoint
         print ('epoch %d \t'
@@ -205,6 +224,8 @@ if __name__ == '__main__':
     parser.add_argument("-flip", type=bool, default=True, help="random flips")
     parser.add_argument("-rotate", type=bool, default=True, help="random rotation")
     parser.add_argument("-translate", type=bool, default=True, help="random translation")
+    parser.add_argument("-debug", action="store_true", help="run on debug set")
+
 
     parser.add_argument("-dropout", type=float, default=0.5, help="dropout")
     parser.add_argument("-l1_decay", type=float, default=0., help="l1 weight decay")
